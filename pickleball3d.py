@@ -101,9 +101,10 @@ def rk4_step(state, dt, spin_x, spin_y, spin_z):
 
 
 # --- 3D Trajectory simulation ---
-def simulateTrajectory3D(v0, angle_elevation, angle_azimuth, spin_x, spin_y, spin_z, player_x, player_z):
-    # Starting position (serving from baseline)
-    x, y, z = 0, 1, court_width / 2
+def simulateTrajectory3D(v0, angle_elevation, angle_azimuth, spin_x, spin_y, spin_z, player_x, player_z, start_x=0,
+                         start_y=0, start_z=0):
+    # Starting position (adjustable)
+    x, y, z = start_x, start_y, start_z
 
     # Initial velocity components
     vx = v0 * np.cos(np.radians(angle_elevation)) * np.cos(np.radians(angle_azimuth))
@@ -170,10 +171,25 @@ def draw_court_lines_3d(ax):
     # Turn off grid
     ax.grid(False)
 
-    # Court surface (ground plane) - make it more opaque and visible
+    # Buffer zone dimensions
+    buffer_size = 2.0
+
+    # Blue buffer zone around court
+    buffer_x_min, buffer_x_max = -buffer_size, court_length + buffer_size
+    buffer_y_min, buffer_y_max = -buffer_size, court_width + buffer_size
+
+    # Create buffer surface
+    xx_buffer, yy_buffer = np.meshgrid(
+        np.linspace(buffer_x_min, buffer_x_max, 20),
+        np.linspace(buffer_y_min, buffer_y_max, 20)
+    )
+    zz_buffer = np.zeros_like(xx_buffer)
+    ax.plot_surface(xx_buffer, yy_buffer, zz_buffer, alpha=0.8, color='#1e4a72', shade=True, linewidth=0)
+
+    # Green court surface on top of buffer
     xx, yy = np.meshgrid(np.linspace(0, court_length, 10), np.linspace(0, court_width, 10))
-    zz = np.zeros_like(xx)
-    ax.plot_surface(xx, yy, zz, alpha=0.8, color='#4a6e3a', shade=True, linewidth=0)
+    zz = np.full_like(xx, 0.001)  # Slightly raised above buffer
+    ax.plot_surface(xx, yy, zz, alpha=0.9, color='#4a6e3a', shade=True, linewidth=0)
 
     # Court boundary lines - raised above surface
     z_line = 0.02  # Raise lines more above surface
@@ -289,11 +305,15 @@ init_spin_y = 0
 init_spin_z = 0
 init_player_x = 12.5
 init_player_z = 3.0
+init_start_x = 0
+init_start_y = 1
+init_start_z = court_width / 2
 
 # Initial trajectory
 init_traj, init_hit = simulateTrajectory3D(init_v0, init_elevation, init_azimuth,
                                            init_spin_x, init_spin_y, init_spin_z,
-                                           init_player_x, init_player_z)
+                                           init_player_x, init_player_z,
+                                           init_start_x, init_start_y, init_start_z)
 
 # Plot initial trajectory
 line3d, = ax3d.plot(init_traj[:, 0], init_traj[:, 2], init_traj[:, 1], 'w-', lw=3)
@@ -358,10 +378,11 @@ ax_side.add_patch(reach_patch_side)
 ax3d.set_xlabel('Length (m)')
 ax3d.set_ylabel('Width (m)')
 ax3d.set_zlabel('Height (m)')
-ax3d.set_xlim(0, court_length)
-ax3d.set_ylim(0, court_width)
+buffer_size = 2.0
+ax3d.set_xlim(-buffer_size, court_length + buffer_size)
+ax3d.set_ylim(-buffer_size, court_width + buffer_size)
 ax3d.set_zlim(0, 5)
-ax3d.set_box_aspect([court_length, court_width, 5])  # Set equal aspect ratio
+ax3d.set_box_aspect([court_length + 2 * buffer_size, court_width + 2 * buffer_size, 5])  # Set equal aspect ratio
 
 # Set initial view angle and restrict elevation
 ax3d.view_init(elev=35, azim=-135)
@@ -393,22 +414,27 @@ ax_top.set_aspect('equal', adjustable='box')
 ax_top.grid(True)
 
 # --- Sliders ---
-slider_height = 0.025
-slider_width = 0.35
-slider_spacing = 0.035
-start_y = 0.18
+slider_height = 0.02
+slider_width = 0.25
+slider_spacing = 0.03
+start_y = 0.2
 
 # Left column sliders - adjusted positioning to fit labels
-ax_v0 = plt.axes([0.08, start_y, slider_width, slider_height])
-ax_elev = plt.axes([0.08, start_y - slider_spacing, slider_width, slider_height])
-ax_azim = plt.axes([0.08, start_y - 2 * slider_spacing, slider_width, slider_height])
-ax_spin_x = plt.axes([0.08, start_y - 3 * slider_spacing, slider_width, slider_height])
+ax_v0 = plt.axes([0.05, start_y, slider_width, slider_height])
+ax_elev = plt.axes([0.05, start_y - slider_spacing, slider_width, slider_height])
+ax_azim = plt.axes([0.05, start_y - 2 * slider_spacing, slider_width, slider_height])
+ax_spin_x = plt.axes([0.05, start_y - 3 * slider_spacing, slider_width, slider_height])
 
-# Right column sliders
-ax_spin_y = plt.axes([0.55, start_y, slider_width, slider_height])
-ax_spin_z = plt.axes([0.55, start_y - slider_spacing, slider_width, slider_height])
-ax_player_x = plt.axes([0.55, start_y - 2 * slider_spacing, slider_width, slider_height])
-ax_player_z = plt.axes([0.55, start_y - 3 * slider_spacing, slider_width, slider_height])
+# Middle column sliders
+ax_spin_y = plt.axes([0.35, start_y, slider_width, slider_height])
+ax_spin_z = plt.axes([0.35, start_y - slider_spacing, slider_width, slider_height])
+ax_player_x = plt.axes([0.35, start_y - 2 * slider_spacing, slider_width, slider_height])
+ax_player_z = plt.axes([0.35, start_y - 3 * slider_spacing, slider_width, slider_height])
+
+# Right column sliders - starting position
+ax_start_x = plt.axes([0.65, start_y, slider_width, slider_height])
+ax_start_y = plt.axes([0.65, start_y - slider_spacing, slider_width, slider_height])
+ax_start_z = plt.axes([0.65, start_y - 2 * slider_spacing, slider_width, slider_height])
 
 s_v0 = Slider(ax_v0, "Velocity (m/s)", 5, 30, valinit=init_v0)
 s_elev = Slider(ax_elev, "Elevation (°)", -10, 60, valinit=init_elevation)
@@ -418,6 +444,9 @@ s_spin_y = Slider(ax_spin_y, "Spin Y (rps)", -50, 50, valinit=init_spin_y)
 s_spin_z = Slider(ax_spin_z, "Spin Z (rps)", -50, 50, valinit=init_spin_z)
 s_player_x = Slider(ax_player_x, "Player X (m)", net_x + 1, court_length, valinit=init_player_x)
 s_player_z = Slider(ax_player_z, "Player Z (m)", 0.5, court_width - 0.5, valinit=init_player_z)
+s_start_x = Slider(ax_start_x, "Start X (m)", -1, court_length, valinit=init_start_x)
+s_start_y = Slider(ax_start_y, "Start Y (m)", 0.5, 3, valinit=init_start_y)
+s_start_z = Slider(ax_start_z, "Start Z (m)", -1, court_width + 1, valinit=init_start_z)
 
 
 def update(val):
