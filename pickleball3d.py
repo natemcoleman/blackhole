@@ -167,34 +167,53 @@ def simulateTrajectory3D(v0, angle_elevation, angle_azimuth, spin_x, spin_y, spi
 
 # --- Court drawing functions ---
 def draw_court_lines_3d(ax):
-    # Court surface (ground plane)
-    court_x = np.array([[0, court_length], [0, court_length]])
-    court_y = np.array([[0, 0], [court_width, court_width]])
-    court_z = np.array([[0, 0], [0, 0]])
-    ax.plot_surface(court_x, court_y, court_z, alpha=0.3, color='#658553')
+    # Turn off grid
+    ax.grid(False)
 
-    # Court boundary lines
-    court_corners = np.array([
-        [0, 0, 0], [court_length, 0, 0],
-        [court_length, court_width, 0], [0, court_width, 0], [0, 0, 0]
-    ])
-    ax.plot(court_corners[:, 0], court_corners[:, 1], court_corners[:, 2], 'w-', lw=3)
+    # Court surface (ground plane) - make it more opaque and visible
+    xx, yy = np.meshgrid(np.linspace(0, court_length, 10), np.linspace(0, court_width, 10))
+    zz = np.zeros_like(xx)
+    ax.plot_surface(xx, yy, zz, alpha=0.8, color='#4a6e3a', shade=True, linewidth=0)
 
-    # Net
-    ax.plot([net_x, net_x], [0, court_width], [0, 0], 'orange', lw=4)
-    ax.plot([net_x, net_x], [0, court_width], [net_height, net_height], 'orange', lw=4)
-    ax.plot([net_x, net_x], [0, 0], [0, net_height], 'orange', lw=4)
-    ax.plot([net_x, net_x], [court_width, court_width], [0, net_height], 'orange', lw=4)
+    # Court boundary lines - raised above surface
+    z_line = 0.02  # Raise lines more above surface
 
-    # Kitchen lines
+    # Court perimeter
+    ax.plot([0, court_length], [0, 0], [z_line, z_line], 'white', lw=5)  # Bottom line
+    ax.plot([0, court_length], [court_width, court_width], [z_line, z_line], 'white', lw=5)  # Top line
+    ax.plot([0, 0], [0, court_width], [z_line, z_line], 'white', lw=5)  # Left line
+    ax.plot([court_length, court_length], [0, court_width], [z_line, z_line], 'white', lw=5)  # Right line
+
+    # Net - make it very visible
+    net_z_vals = np.linspace(0, net_height, 10)
+    net_y_vals = np.linspace(0, court_width, 10)
+
+    # Vertical net posts
+    ax.plot([net_x, net_x], [0, 0], [0, net_height], 'orange', lw=8)
+    ax.plot([net_x, net_x], [court_width, court_width], [0, net_height], 'orange', lw=8)
+
+    # Horizontal net lines
+    ax.plot([net_x, net_x], [0, court_width], [0, 0], 'orange', lw=8)
+    ax.plot([net_x, net_x], [0, court_width], [net_height, net_height], 'orange', lw=8)
+
+    # Net mesh (optional - makes it more visible)
+    for y in np.linspace(0, court_width, 5):
+        ax.plot([net_x, net_x], [y, y], [0, net_height], 'orange', lw=2, alpha=0.7)
+
+    # Kitchen lines - raised above surface
     kitchen_length = 2.1336
     kitchen_start = net_x - kitchen_length
     kitchen_end = net_x + kitchen_length
-    ax.plot([kitchen_start, kitchen_start], [0, court_width], [0, 0], 'w-', lw=2)
-    ax.plot([kitchen_end, kitchen_end], [0, court_width], [0, 0], 'w-', lw=2)
 
-    # Center line in kitchen
-    ax.plot([kitchen_start, kitchen_end], [court_width / 2, court_width / 2], [0, 0], 'w-', lw=2)
+    ax.plot([kitchen_start, kitchen_start], [0, court_width], [z_line, z_line], 'white', lw=4)
+    ax.plot([kitchen_end, kitchen_end], [0, court_width], [z_line, z_line], 'white', lw=4)
+
+    # Center line in kitchen - raised above surface
+    ax.plot([kitchen_start, kitchen_end], [court_width / 2, court_width / 2], [z_line, z_line], 'white', lw=4)
+
+    # Service boxes (optional additional lines)
+    ax.plot([0, kitchen_start], [court_width / 2, court_width / 2], [z_line, z_line], 'white', lw=3)
+    ax.plot([kitchen_end, court_length], [court_width / 2, court_width / 2], [z_line, z_line], 'white', lw=3)
 
 
 def draw_court_lines_side(ax):
@@ -342,6 +361,7 @@ ax3d.set_zlabel('Height (m)')
 ax3d.set_xlim(0, court_length)
 ax3d.set_ylim(0, court_width)
 ax3d.set_zlim(0, 5)
+ax3d.set_box_aspect([court_length, court_width, 5])  # Set equal aspect ratio
 
 # Set initial view angle and restrict elevation
 ax3d.view_init(elev=35, azim=-135)
@@ -420,8 +440,8 @@ def update(val):
     draw_court_lines_3d(ax3d)
 
     # Redraw trajectory
-    ax3d.plot(traj[:, 0], traj[:, 2], traj[:, 1], lw=3,
-              color="red" if hit_status in ["net", "out", "body", "reach"] else "black")
+    ax3d.plot(traj[:, 0], traj[:, 2], traj[:, 1], lw=4,
+              color="black")  # Always black trajectory line
 
     # Redraw player in 3D
     player_color = "red" if hit_status in ["body", "reach"] else "green"
@@ -434,6 +454,8 @@ def update(val):
     ax3d.set_xlim(0, court_length)
     ax3d.set_ylim(0, court_width)
     ax3d.set_zlim(0, 5)
+    ax3d.set_box_aspect([court_length, court_width, 5])  # Equal aspect ratio
+    ax3d.grid(False)  # Turn off grid
     ax3d.xaxis.pane.fill = False
     ax3d.yaxis.pane.fill = False
     ax3d.zaxis.pane.fill = False
