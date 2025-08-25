@@ -167,29 +167,34 @@ def simulateTrajectory3D(v0, angle_elevation, angle_azimuth, spin_x, spin_y, spi
 
 # --- Court drawing functions ---
 def draw_court_lines_3d(ax):
-    # Court boundary
+    # Court surface (ground plane)
+    court_x = np.array([[0, court_length], [0, court_length]])
+    court_y = np.array([[0, 0], [court_width, court_width]])
+    court_z = np.array([[0, 0], [0, 0]])
+    ax.plot_surface(court_x, court_y, court_z, alpha=0.3, color='#658553')
+
+    # Court boundary lines
     court_corners = np.array([
         [0, 0, 0], [court_length, 0, 0],
-        [court_length, 0, court_width], [0, 0, court_width], [0, 0, 0]
+        [court_length, court_width, 0], [0, court_width, 0], [0, 0, 0]
     ])
-    ax.plot(court_corners[:, 0], court_corners[:, 2], court_corners[:, 1], 'w-', lw=2)
+    ax.plot(court_corners[:, 0], court_corners[:, 1], court_corners[:, 2], 'w-', lw=3)
 
     # Net
-    net_corners = np.array([
-        [net_x, 0, 0], [net_x, net_height, 0],
-        [net_x, net_height, court_width], [net_x, 0, court_width]
-    ])
-    ax.plot([net_x, net_x], [0, court_width], [0, 0], 'orange', lw=3)
-    ax.plot([net_x, net_x], [0, court_width], [net_height, net_height], 'orange', lw=3)
-    ax.plot([net_x, net_x], [0, 0], [0, net_height], 'orange', lw=3)
-    ax.plot([net_x, net_x], [court_width, court_width], [0, net_height], 'orange', lw=3)
+    ax.plot([net_x, net_x], [0, court_width], [0, 0], 'orange', lw=4)
+    ax.plot([net_x, net_x], [0, court_width], [net_height, net_height], 'orange', lw=4)
+    ax.plot([net_x, net_x], [0, 0], [0, net_height], 'orange', lw=4)
+    ax.plot([net_x, net_x], [court_width, court_width], [0, net_height], 'orange', lw=4)
 
     # Kitchen lines
     kitchen_length = 2.1336
     kitchen_start = net_x - kitchen_length
     kitchen_end = net_x + kitchen_length
-    ax.plot([kitchen_start, kitchen_start], [0, court_width], [0, 0], 'w-', lw=1)
-    ax.plot([kitchen_end, kitchen_end], [0, court_width], [0, 0], 'w-', lw=1)
+    ax.plot([kitchen_start, kitchen_start], [0, court_width], [0, 0], 'w-', lw=2)
+    ax.plot([kitchen_end, kitchen_end], [0, court_width], [0, 0], 'w-', lw=2)
+
+    # Center line in kitchen
+    ax.plot([kitchen_start, kitchen_end], [court_width / 2, court_width / 2], [0, 0], 'w-', lw=2)
 
 
 def draw_court_lines_side(ax):
@@ -230,18 +235,29 @@ def draw_court_lines_top(ax):
 
 
 # --- Plot setup ---
-fig = plt.figure(figsize=(15, 12))
-plt.subplots_adjust(bottom=0.3, hspace=0.3)
+fig = plt.figure(figsize=(18, 10))
+plt.subplots_adjust(bottom=0.25, hspace=0.3, wspace=0.3)
 
-# Create subplots
-ax3d = fig.add_subplot(3, 1, 1, projection='3d')
-ax_side = fig.add_subplot(3, 1, 2)
-ax_top = fig.add_subplot(3, 1, 3)
+# Create subplots - 3D on left, 2D plots stacked on right
+ax3d = fig.add_subplot(1, 2, 1, projection='3d')
+ax_side = fig.add_subplot(2, 2, 2)
+ax_top = fig.add_subplot(2, 2, 4)
+
+# Position plots manually for better layout
+ax3d.set_position([0.05, 0.3, 0.45, 0.65])  # [left, bottom, width, height]
+ax_side.set_position([0.55, 0.55, 0.4, 0.35])
+ax_top.set_position([0.55, 0.3, 0.4, 0.2])
 
 # Set backgrounds
 ax3d.xaxis.pane.fill = False
 ax3d.yaxis.pane.fill = False
 ax3d.zaxis.pane.fill = False
+ax3d.xaxis.pane.set_edgecolor('white')
+ax3d.yaxis.pane.set_edgecolor('white')
+ax3d.zaxis.pane.set_edgecolor('white')
+ax3d.xaxis.pane.set_alpha(0.1)
+ax3d.yaxis.pane.set_alpha(0.1)
+ax3d.zaxis.pane.set_alpha(0.1)
 ax_side.set_facecolor('#658553')
 ax_top.set_facecolor('#658553')
 
@@ -261,7 +277,7 @@ init_traj, init_hit = simulateTrajectory3D(init_v0, init_elevation, init_azimuth
                                            init_player_x, init_player_z)
 
 # Plot initial trajectory
-line3d, = ax3d.plot(init_traj[:, 0], init_traj[:, 2], init_traj[:, 1], 'w-', lw=2)
+line3d, = ax3d.plot(init_traj[:, 0], init_traj[:, 2], init_traj[:, 1], 'w-', lw=3)
 line_side, = ax_side.plot(init_traj[:, 0], init_traj[:, 1], 'w-', lw=2)
 line_top, = ax_top.plot(init_traj[:, 0], init_traj[:, 2], 'w-', lw=2)
 
@@ -270,7 +286,41 @@ draw_court_lines_3d(ax3d)
 draw_court_lines_side(ax_side)
 draw_court_lines_top(ax_top)
 
-# Add receiver representations
+
+# Add 3D player representation
+def draw_player_3d(ax, x, z, color="green", alpha=0.8):
+    # Player body as a vertical cylinder
+    theta = np.linspace(0, 2 * np.pi, 20)
+    body_radius = body_width / 2
+
+    # Body cylinder
+    x_body = x + body_radius * np.cos(theta)
+    z_body = z + body_radius * np.sin(theta)
+    y_bottom = np.zeros_like(x_body)
+    y_top = np.full_like(x_body, body_height)
+
+    # Draw body cylinder walls
+    for i in range(len(theta) - 1):
+        ax.plot([x_body[i], x_body[i + 1]], [z_body[i], z_body[i + 1]], [0, 0], color=color, alpha=alpha, lw=2)
+        ax.plot([x_body[i], x_body[i + 1]], [z_body[i], z_body[i + 1]], [body_height, body_height], color=color,
+                alpha=alpha, lw=2)
+        ax.plot([x_body[i], x_body[i]], [z_body[i], z_body[i]], [0, body_height], color=color, alpha=alpha, lw=1)
+
+    # Reach sphere (wireframe)
+    u = np.linspace(0, np.pi, 10)
+    v = np.linspace(0, 2 * np.pi, 20)
+    x_sphere = x + reach_radius_x * np.outer(np.sin(u), np.cos(v))
+    y_sphere = shoulder_height + reach_radius_y * np.outer(np.cos(u), np.ones(np.size(v)))
+    z_sphere = z + reach_radius_z * np.outer(np.sin(u), np.sin(v))
+
+    # Draw wireframe sphere for reach
+    ax.plot_wireframe(x_sphere, z_sphere, y_sphere, alpha=0.1, color=color, linewidth=0.5)
+
+
+# Draw initial player
+player_3d_elements = []
+
+# Add receiver representations for 2D views
 body_patch_top = Rectangle((init_player_x - body_width / 2, init_player_z - body_width / 2),
                            body_width, body_width, color="green", alpha=0.8)
 reach_patch_top = Ellipse((init_player_x, init_player_z), 2 * reach_radius_x, 2 * reach_radius_z,
@@ -293,6 +343,21 @@ ax3d.set_xlim(0, court_length)
 ax3d.set_ylim(0, court_width)
 ax3d.set_zlim(0, 5)
 
+# Set initial view angle and restrict elevation
+ax3d.view_init(elev=35, azim=-135)
+
+
+# Restrict the elevation angle to prevent going below ground
+def on_move(event):
+    if event.inaxes == ax3d:
+        elev, azim = ax3d.elev, ax3d.azim
+        if elev < 0:
+            ax3d.view_init(elev=0, azim=azim)
+            plt.draw()
+
+
+fig.canvas.mpl_connect('motion_notify_event', on_move)
+
 ax_side.set_xlabel('Length (m)')
 ax_side.set_ylabel('Height (m)')
 ax_side.set_xlim(-1, court_length + 1)
@@ -308,22 +373,22 @@ ax_top.set_aspect('equal', adjustable='box')
 ax_top.grid(True)
 
 # --- Sliders ---
-slider_height = 0.02
-slider_width = 0.3
-slider_spacing = 0.025
+slider_height = 0.025
+slider_width = 0.35
+slider_spacing = 0.035
 start_y = 0.18
 
-# Left column sliders
-ax_v0 = plt.axes([0.05, start_y, slider_width, slider_height])
-ax_elev = plt.axes([0.05, start_y - slider_spacing, slider_width, slider_height])
-ax_azim = plt.axes([0.05, start_y - 2 * slider_spacing, slider_width, slider_height])
-ax_spin_x = plt.axes([0.05, start_y - 3 * slider_spacing, slider_width, slider_height])
+# Left column sliders - adjusted positioning to fit labels
+ax_v0 = plt.axes([0.08, start_y, slider_width, slider_height])
+ax_elev = plt.axes([0.08, start_y - slider_spacing, slider_width, slider_height])
+ax_azim = plt.axes([0.08, start_y - 2 * slider_spacing, slider_width, slider_height])
+ax_spin_x = plt.axes([0.08, start_y - 3 * slider_spacing, slider_width, slider_height])
 
 # Right column sliders
-ax_spin_y = plt.axes([0.65, start_y, slider_width, slider_height])
-ax_spin_z = plt.axes([0.65, start_y - slider_spacing, slider_width, slider_height])
-ax_player_x = plt.axes([0.65, start_y - 2 * slider_spacing, slider_width, slider_height])
-ax_player_z = plt.axes([0.65, start_y - 3 * slider_spacing, slider_width, slider_height])
+ax_spin_y = plt.axes([0.55, start_y, slider_width, slider_height])
+ax_spin_z = plt.axes([0.55, start_y - slider_spacing, slider_width, slider_height])
+ax_player_x = plt.axes([0.55, start_y - 2 * slider_spacing, slider_width, slider_height])
+ax_player_z = plt.axes([0.55, start_y - 3 * slider_spacing, slider_width, slider_height])
 
 s_v0 = Slider(ax_v0, "Velocity (m/s)", 5, 30, valinit=init_v0)
 s_elev = Slider(ax_elev, "Elevation (°)", -10, 60, valinit=init_elevation)
@@ -348,50 +413,65 @@ def update(val):
     traj, hit_status = simulateTrajectory3D(v0, elevation, azimuth, spin_x, spin_y, spin_z,
                                             player_x, player_z)
 
-    # Update trajectory lines
-    line3d.set_data_3d(traj[:, 0], traj[:, 2], traj[:, 1])
+    # Clear 3D plot and redraw everything
+    ax3d.clear()
+
+    # Redraw court
+    draw_court_lines_3d(ax3d)
+
+    # Redraw trajectory
+    ax3d.plot(traj[:, 0], traj[:, 2], traj[:, 1], lw=3,
+              color="red" if hit_status in ["net", "out", "body", "reach"] else "black")
+
+    # Redraw player in 3D
+    player_color = "red" if hit_status in ["body", "reach"] else "green"
+    draw_player_3d(ax3d, player_x, player_z, color=player_color)
+
+    # Reset 3D axis properties
+    ax3d.set_xlabel('Length (m)')
+    ax3d.set_ylabel('Width (m)')
+    ax3d.set_zlabel('Height (m)')
+    ax3d.set_xlim(0, court_length)
+    ax3d.set_ylim(0, court_width)
+    ax3d.set_zlim(0, 5)
+    ax3d.xaxis.pane.fill = False
+    ax3d.yaxis.pane.fill = False
+    ax3d.zaxis.pane.fill = False
+    ax3d.xaxis.pane.set_edgecolor('white')
+    ax3d.yaxis.pane.set_edgecolor('white')
+    ax3d.zaxis.pane.set_edgecolor('white')
+    ax3d.xaxis.pane.set_alpha(0.1)
+    ax3d.yaxis.pane.set_alpha(0.1)
+    ax3d.zaxis.pane.set_alpha(0.1)
+
+    # Update 2D trajectory lines
     line_side.set_xdata(traj[:, 0])
     line_side.set_ydata(traj[:, 1])
     line_top.set_xdata(traj[:, 0])
     line_top.set_ydata(traj[:, 2])
 
-    # Update receiver positions
+    # Update receiver positions in 2D views
     body_patch_top.set_xy((player_x - body_width / 2, player_z - body_width / 2))
     reach_patch_top.center = (player_x, player_z)
     body_patch_side.set_xy((player_x - body_width / 2, 0))
     reach_patch_side.center = (player_x, shoulder_height)
 
-    # Reset colors
-    color = "white"
-    body_color = "green"
-    reach_color = "green"
-    body_alpha = 0.8
-    reach_alpha = 0.2
+    # Set colors for 2D views
+    color = "red" if hit_status in ["net", "out", "body", "reach"] else "white"
+    body_color = "red" if hit_status in ["body", "reach"] else "green"
+    reach_color = "red" if hit_status == "reach" else "green"
 
-    # Change colors based on hit status
-    if hit_status == "net":
-        color = "red"
-    elif hit_status == "out":
-        color = "red"
-    elif hit_status == "body":
-        color = "red"
-        body_color = "red"
-    elif hit_status == "reach":
-        color = "red"
-        reach_color = "red"
-
-    line3d.set_color(color)
     line_side.set_color(color)
     line_top.set_color(color)
 
     body_patch_top.set_color(body_color)
-    body_patch_top.set_alpha(body_alpha)
+    body_patch_top.set_alpha(0.8)
     reach_patch_top.set_color(reach_color)
-    reach_patch_top.set_alpha(reach_alpha)
+    reach_patch_top.set_alpha(0.2)
     body_patch_side.set_color(body_color)
-    body_patch_side.set_alpha(body_alpha)
+    body_patch_side.set_alpha(0.8)
     reach_patch_side.set_color(reach_color)
-    reach_patch_side.set_alpha(reach_alpha)
+    reach_patch_side.set_alpha(0.2)
 
     fig.canvas.draw_idle()
 
@@ -408,7 +488,8 @@ s_player_z.on_changed(update)
 
 # Initial update
 update(0)
+draw_player_3d(ax3d, init_player_x, init_player_z)
 
-plt.suptitle('3D Pickleball Trajectory Simulator', fontsize=16, y=0.95)
+plt.suptitle('3D Pickleball Trajectory Simulator', fontsize=18, y=0.98)
 
 plt.show()
